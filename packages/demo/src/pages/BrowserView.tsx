@@ -34,25 +34,13 @@ export const Omnibox: Component = function (cx) {
 		>
 			<div class="browser-omnibox-shell">
 				<div class="omnibox-nav" aria-hidden="true">
-					<button
-						type="button"
-						class="nav-btn"
-						on:click={() => browserState.frame?.back()}
-					>
+					<button type="button" class="nav-btn" on:click={() => browserState.frame?.back()}>
 						<span class="material-symbols-outlined">arrow_back</span>
 					</button>
-					<button
-						type="button"
-						class="nav-btn"
-						on:click={() => browserState.frame?.forward()}
-					>
+					<button type="button" class="nav-btn" on:click={() => browserState.frame?.forward()}>
 						<span class="material-symbols-outlined">arrow_forward</span>
 					</button>
-					<button
-						type="button"
-						class="nav-btn"
-						on:click={() => browserState.frame?.reload()}
-					>
+					<button type="button" class="nav-btn" on:click={() => browserState.frame?.reload()}>
 						<span class="material-symbols-outlined">refresh</span>
 					</button>
 				</div>
@@ -68,13 +56,13 @@ export const Omnibox: Component = function (cx) {
 		</form>
 	);
 };
+
 Omnibox.style = css`
 	:scope {
 		display: flex;
 		align-items: center;
-		/*padding: 0.25em 0.45em;*/
-		background: #0f0f0f;
-		border-bottom: 1px solid #2a2a2a;
+		background: #000000;
+		border-bottom: 3px solid #00ff00;
 		min-width: 0;
 		width: 100%;
 	}
@@ -83,163 +71,54 @@ Omnibox.style = css`
 		width: 100%;
 		align-items: center;
 		gap: 0.35em;
-		min-width: 0;
-		border: 0;
-		background: transparent;
-		padding: 0;
-		flex: 1;
-	}
-	.omnibox-nav {
-		display: flex;
-		align-items: center;
-		gap: 0.15em;
-		padding-right: 0.25em;
-		border-right: 1px solid #2a2a2a;
-	}
-	.nav-btn {
-		border: 0;
-		background: transparent;
-		color: #8f8f8f;
-		width: 1.5em;
-		height: 1.5em;
-		padding: 0;
-		border-radius: 3px;
-		cursor: pointer;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-	}
-	.nav-btn:hover {
-		background: #1f1f1f;
-		color: #d0d0d0;
-	}
-	.browser-omnibox-shell .material-symbols-outlined {
-		font-size: 15px !important;
-		line-height: 1 !important;
-		font-variation-settings:
-			"OPSZ" 20,
-			"wght" 300,
-			"FILL" 0,
-			"GRAD" 0;
+		padding: 0.3em;
 	}
 	.url-input {
 		box-sizing: border-box;
 		width: 100%;
-		padding: 0.22em 0.18em;
+		padding: 0.4em;
 		font-size: 0.9em;
-		border: 1px solid transparent;
-		border-radius: 3px;
-		background: transparent;
-		color: #e5e7eb;
+		border: 3px solid #000000 !important;
+		border-radius: 4px;
+		background: #ffffff !important;
+		color: #000000 !important;
 		outline: none;
 	}
-	.url-input::placeholder {
-		color: #6f7680;
-	}
+    .nav-btn { color: #ffffff; cursor: pointer; background: transparent; border: 0; }
+	.nav-btn:hover { background: #8b0000; }
 `;
 
-const BrowserView: Component<
-	{
-		active: boolean;
-	},
-	{},
-	{
-		frameel: HTMLIFrameElement;
-	}
-> = function (cx) {
+const BrowserView: Component<{ active: boolean }, {}, { frameel: HTMLIFrameElement; }> = function (cx) {
 	cx.mount = async () => {
 		await controller.wait();
 		browserState.frame = controller.createFrame(this.frameel);
 		cachePlugin.install(browserState.frame);
 		const openfix = new ScramjetPlugin("openfix");
-		openfix.tap(
-			browserState.frame.hooks.fetch.intercept,
-			(context, props) => {
-				if (context.request.destination === "document") {
-					props.response = {
-						body: "",
-						status: 302,
-						statusText: "Found",
-						headers: ScramjetHeaders.fromRawHeaders([
-							[
-								"Location",
-								new URL(
-									`/?goto=${encodeURIComponent(context.parsed.url.href)}`,
-									location.origin
-								).href,
-							],
-						]),
-					};
-				}
-			},
-			(other: Plugin) => (other.name === cachePlugin.name ? 1 : -1)
-		);
-		const versionInfo = window.$scramjet.versionInfo ?? {};
-		let realHomepage = homepage;
-		realHomepage = realHomepage.replaceAll(
-			"{{SCRAMJET_VERSION}}",
-			String(versionInfo.version ?? "unknown")
-		);
-		realHomepage = realHomepage.replaceAll(
-			"{{SCRAMJET_BUILD}}",
-			String(versionInfo.build ?? "unknown")
-		);
-		realHomepage = realHomepage.replaceAll(
-			"{{SCRAMJET_DATE_PRETTY}}",
-			new Date(versionInfo.date).toLocaleString(undefined, {
-				dateStyle: "short",
-				timeStyle: "short",
-			})
-		);
-		this.frameel.src = `data:text/html;base64,${btoa(realHomepage)}`;
-		initPlugin(browserState.frame);
-
-		let goto = new URL(location.href).searchParams.get("goto");
-		if (goto) {
-			browserState.frame?.go(goto);
-			history.replaceState(null, "", location.href.split("?")[0]);
-		}
+		openfix.tap(browserState.frame.hooks.fetch.intercept, (context, props) => {
+			if (context.request.destination === "document") {
+				props.response = {
+					body: "",
+					status: 302,
+					statusText: "Found",
+					headers: ScramjetHeaders.fromRawHeaders([
+						["Location", new URL(`/?goto=${encodeURIComponent(context.parsed.url.href)}`, location.origin).href],
+					]),
+				};
+			}
+		}, (other: Plugin) => (other.name === cachePlugin.name ? 1 : -1));
+		this.frameel.src = `data:text/html;base64,${btoa(homepage)}`;
 	};
-	const initPlugin = (frame: Frame) => {
-		const plugin = new ScramjetPlugin("url-watcher");
-		plugin.tap(frame.hooks.init.post, (context, props) => {
-			if (!context.isTopLevel) return;
-			browserState.url = context.client.url.href;
-			plugin.tap(context.client.hooks.lifecycle.navigate, (context, props) => {
-				browserState.url = props.url;
-			});
-		});
-	};
-
 	return (
-		<div
-			class={use(this.active).map(
-				(active) => `tab-panel browser-view ${active ? "active" : ""}`
-			)}
-		>
+		<div class={use(this.active).map((active) => `tab-panel browser-view ${active ? "active" : ""}`)}>
 			<iframe this={use(this.frameel)}></iframe>
 		</div>
 	);
 };
 
 BrowserView.style = css`
-	:scope {
-		flex: 1;
-		width: 100%;
-		min-width: 0;
-		min-height: 0;
-		display: none;
-		flex-direction: column;
-	}
-	:scope.active {
-		display: flex;
-	}
-
-	iframe {
-		background: white;
-		flex: 1;
-		border: none;
-	}
+	:scope { flex: 1; width: 100%; min-width: 0; min-height: 0; display: none; flex-direction: column; }
+	:scope.active { display: flex; }
+	iframe { background: white; flex: 1; border: none; }
 `;
 
 export default BrowserView;
