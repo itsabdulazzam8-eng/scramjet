@@ -39,41 +39,25 @@ async function waitForControllerOrReady(timeoutMs = 10000): Promise<void> {
 		setTimeout(resolve, timeoutMs)
 	);
 
-	// Wait for whichever happens first; on timeout we continue to avoid blocking the UI.
 	await Promise.race([ready, controllerChanged, timeout]);
 }
 
 async function init() {
 	const interstitial: any = (
-		<LoadInterstitial status={"Loading"}></LoadInterstitial>
+		<LoadInterstitial status={"Loading Stereofymer..."}></LoadInterstitial>
 	);
 	document.body.append(interstitial);
 	interstitial.showModal();
 
 	try {
 		const registration = await navigator.serviceWorker.register("./sw.js");
-
-		// Non-blocking progress updates on state transitions.
 		const updateStatus = (sw: ServiceWorker | null) => {
 			if (!sw) return;
 			const set = (msg: string) => (interstitial.$.state.status = msg);
 			const apply = () => {
 				switch (sw.state) {
-					case "installing":
-						set("Installing service worker...");
-						break;
-					case "installed":
-						set("Service worker installed, waiting to activate...");
-						break;
-					case "activating":
-						set("Activating service worker...");
-						break;
-					case "activated":
-						set("Service worker activated");
-						break;
-					case "redundant":
-						set("Service worker became redundant");
-						break;
+					case "installing": set("Installing..."); break;
+					case "activated": set("Stereofymer Ready"); break;
 				}
 			};
 			apply();
@@ -81,51 +65,24 @@ async function init() {
 		};
 
 		updateStatus(registration.installing ?? registration.waiting ?? null);
-
-		// Wait for control or readiness with a timeout; don't hang the UI on updates.
-		interstitial.$.state.status =
-			"Waiting for service worker to take control...";
 		await waitForControllerOrReady(10000);
-		interstitial.$.state.status =
-			"Service worker ready, waiting for controller init";
-		const readySw = navigator.serviceWorker.controller ?? registration.active;
-		if (!readySw) {
-			throw new Error("No service worker available for controller");
-		}
+		
 		controller = new Controller({
-			serviceworker: readySw,
+			serviceworker: navigator.serviceWorker.controller ?? registration.active!,
 			transport: getTransport(),
 			scramjetConfig: defaultConfigDev,
 		});
 		await controller.wait();
-		console.log(controller);
-		interstitial.$.state.status = "Controller initialized";
 		interstitial.close();
 	} catch (e) {
-		console.error("Error during service worker registration:", e);
-		// Always close the modal on error to prevent hanging UI.
-		try {
-			interstitial.close();
-		} catch {}
-		app.innerText =
-			"Failed to register service worker. Check console for details.";
+		interstitial.close();
+		app.innerText = "Stereofymer failed to load.";
 	}
 }
 
 async function mount() {
-	try {
-		const root = <App />;
-		app.replaceWith(root);
-	} catch (e) {
-		let err = e as any;
-		app.replaceWith(
-			document.createTextNode(
-				`Error mounting: ${"message" in err ? err.message : err}`
-			)
-		);
-		console.error(err);
-		throw e;
-	}
+	const root = <App />;
+	app.replaceWith(root);
 }
 
 init().then(() => mount());
